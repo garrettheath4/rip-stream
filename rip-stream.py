@@ -67,12 +67,12 @@ def main():
             raise ValueError("Placeholder not specified in URL format:", url_format)
         if re.search(r'{.*\..*}', url_format):
             raise ValueError("URL format placeholder cannot contain a `.` character:", url_format)
-        first_index = int(input('First index (inclusive): '))
-        last_index = int(input('Last index (inclusive):  '))
+        first_index = int(input('First index (inclusive, probably 0):  '))
+        last_index = int(input('Last index (inclusive, example: 555): '))
 
         index_range = range(first_index, last_index+1)
 
-        download_all(url_format, index_range, output_name)
+        download_all(url_format, index_range, raw_videos_dir)
 
     combined_ts_filename = f"./{output_name}/{output_name}.ts"
     if os.path.exists(combined_ts_filename):
@@ -181,6 +181,7 @@ def transcode_ts_to_mp4(combined_ts_filename: str, output_mp4_filename: str):
     """
 
     #TODO: Use ffmpeg to combine videos instead of manually combining them?
+    print("Transcoding... (This could take a while...)")
     ffmpeg\
         .input(combined_ts_filename)\
         .output(output_mp4_filename)\

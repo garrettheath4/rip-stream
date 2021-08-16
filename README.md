@@ -9,6 +9,10 @@ License: MIT
 Usage
 -----
 
+`pipenv run python3 rip-stream.py`
+
+or, if you already have the dependencies installed system-wide, simply run:
+
 `python3 rip-stream.py`
 
 Installation
@@ -23,6 +27,15 @@ pipenv run python3 rip-stream.py
 ```
 
 Then simply follow the interactive prompts.
+
+Dependencies
+------------
+
+* Python 3.7+
+* _ffmpeg-python_
+    * This Python library might require you to first install the main _ffmpeg_ library on your system.
+      If you are using macOS, you can do this with [Homebrew](https://brew.sh) using `brew install ffmpeg`.
+* _tqdm_ – Makes it easy to display progress bars in the console from a Python script.
 
 Attribution
 -----------
