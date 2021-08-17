@@ -28,16 +28,33 @@ pipenv run python3 rip-stream.py
 
 Then simply follow the interactive prompts.
 
+You can also optionally have _rip-stream_ send you a [Pushover](https://pushover.net) notification when it is done
+transcoding. Simply create a `~/.pushoverrc` file (in your home directory) with the following contents:
+
+```ini
+[Default]
+api_token=aaaaaa
+user_key=xxxxxx
+```
+
 Dependencies
 ------------
 
 * Python 3.7+
-* _ffmpeg-python_
+* [ffmpeg-python]
     * This Python library might require you to first install the main _ffmpeg_ library on your system.
       If you are using macOS, you can do this with [Homebrew](https://brew.sh) using `brew install ffmpeg`.
-* _tqdm_ – Makes it easy to display progress bars in the console from a Python script.
+* [tqdm] – Makes it easy to display progress bars in the console from a Python script.
+* [python-pushover] – Optionally receive a Pushover notification every time _rip-stream_ finishes transcoding.
 
 Attribution
 -----------
 
-Based on Bash script at https://stackoverflow.com/questions/22188332/download-ts-files-from-video-stream
+Inspired by Bash script at https://stackoverflow.com/a/45050718/1360295
+
+
+
+<!-- Links -->
+[ffmpeg-python]: https://github.com/kkroening/ffmpeg-python
+[tqdm]: https://tqdm.github.io
+[python-pushover]: https://github.com/Thibauth/python-pushover

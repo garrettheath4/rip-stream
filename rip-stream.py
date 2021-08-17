@@ -41,6 +41,7 @@ import argparse
 
 import ffmpeg
 from tqdm import tqdm
+from pushover import Client as Pushover
 
 __license__ = "MIT"
 
@@ -123,6 +124,9 @@ def download_and_transcode(video_name: str,
         transcode_ts_to_mp4(combined_ts_filename, output_mp4_filename)
         # concat_and_transcode(raw_videos_dir, output_mp4_filename)
         # reduce_transcode(raw_videos_dir, output_mp4_filename)
+
+    if os.path.exists(os.path.expanduser('~/.pushoverrc')):
+        Pushover().send_message(f"'{video_name}' finished transcoding.", title="Rip-Stream Finished")
 
 
 def download_all(url_format: str, video_nums: range, raw_videos_dir: str):
