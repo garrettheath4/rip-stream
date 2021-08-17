@@ -9,11 +9,20 @@ License: MIT
 Usage
 -----
 
-`pipenv run python3 rip-stream.py`
+To run interactively (where _rip-stream_ asks you to type in everything it needs):
+
+    pipenv run python3 rip-stream.py
 
 or, if you already have the dependencies installed system-wide, simply run:
 
-`python3 rip-stream.py`
+    python3 rip-stream.py
+
+You can also run _rip-stream_ non-interactively by running it with command line arguments:
+
+    python3 rip-stream.py --url_template 'https://example.com/videos/{}.ts' \
+                          --first_number 0 --last_number 555 'S01E01 - Pilot'
+
+Run `python3 rip-stream.py --help` to learn more about the command line arguments.
 
 Installation
 ------------

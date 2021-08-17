@@ -127,6 +127,9 @@ def download_and_transcode(video_name: str,
 
     if os.path.exists(os.path.expanduser('~/.pushoverrc')):
         Pushover().send_message(f"'{video_name}' finished transcoding.", title="Rip-Stream Finished")
+    else:
+        logger.info(
+            "Create a ~/.pushoverrc file if you want to receive push notifications via Pushover.")
 
 
 def download_all(url_format: str, video_nums: range, raw_videos_dir: str):
@@ -219,7 +222,7 @@ def transcode_ts_to_mp4(combined_ts_filename: str, output_mp4_filename: str):
     print(f"Transcode finished: {output_mp4_filename}")
 
 
-def _raw_videos_dir(video_name: str):
+def _raw_videos_dir(video_name: str) -> str:
     return f"./{video_name}/{RAW_VIDEOS_DIR_NAME}"
 
 
