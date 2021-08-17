@@ -25,7 +25,7 @@ Installation
 Attribution
 -----------
 
-Based on Bash script at https://stackoverflow.com/questions/22188332/download-ts-files-from-video-stream
+Inspired by Bash script at https://stackoverflow.com/a/45050718/1360295
 
 """
 
@@ -67,10 +67,15 @@ def main():
             raise ValueError("Placeholder not specified in URL format:", url_format)
         if re.search(r'{.*\..*}', url_format):
             raise ValueError("URL format placeholder cannot contain a `.` character:", url_format)
-        first_index = int(input('First index (inclusive, probably 0):  '))
+        first_index_str = input('First index (inclusive, default = 0): ')
+        if first_index_str == "":
+            first_index_int = 0
+        else:
+            first_index_int = int(first_index_str)
+        # TODO: Automatically keep downloading the next incremented video until you get a 404 error
         last_index = int(input('Last index (inclusive, example: 555): '))
 
-        index_range = range(first_index, last_index+1)
+        index_range = range(first_index_int, last_index+1)
 
         download_all(url_format, index_range, raw_videos_dir)
 
@@ -80,12 +85,10 @@ def main():
     else:
         combine_all(raw_videos_dir, combined_ts_filename)
 
-    # TODO: Transcode output file into a proper .mp4 using ffmpeg
     output_mp4_filename = f"./{output_name}/{output_name}.mp4"
     if os.path.exists(output_mp4_filename):
         print(f"{output_mp4_filename} already exists. Skipping.")
     else:
-        # TODO: Ideally concat and transcode within ffmpeg
         transcode_ts_to_mp4(combined_ts_filename, output_mp4_filename)
         # concat_and_transcode(raw_videos_dir, output_mp4_filename)
         # reduce_transcode(raw_videos_dir, output_mp4_filename)
@@ -165,13 +168,6 @@ def combine_all(raw_videos_dir: str, output_filename: str):
                 # OR: cat "$inputFilename" >> "$outputFilename"
 
 
-def flat_map(f, xs):
-    ys = []
-    for x in xs:
-        ys.extend(f(x))
-    return ys
-
-
 def transcode_ts_to_mp4(combined_ts_filename: str, output_mp4_filename: str):
     """
     Convert a given .ts video file to a valid .mp4 file using the **ffmpeg** library.
@@ -180,84 +176,11 @@ def transcode_ts_to_mp4(combined_ts_filename: str, output_mp4_filename: str):
     :param output_mp4_filename: Output .mp4 file to create
     """
 
-    #TODO: Use ffmpeg to combine videos instead of manually combining them?
     print("Transcoding... (This could take a while...)")
     ffmpeg\
         .input(combined_ts_filename)\
         .output(output_mp4_filename)\
         .run()
-
-
-def concat_and_transcode(raw_videos_dir: str, output_mp4_filename: str):
-    """
-    Concatenate a list of .ts video files into one output .mp4 video file.
-
-    :param raw_videos_dir: Directory containing the raw .ts input video files.
-    :param output_mp4_filename: Filename to save the output .mp4 video file as.
-    """
-
-    # TODO: This whole method doesn't work. :-/
-    # ffmpeg doesn't seem to be able to handle hundreds of streams (especially since these are probably done in-memory)
-    raise NotImplementedError("concat_and_transcode")
-
-    # in1 = ffmpeg.input('1.ts')
-    # in2 = ffmpeg.input('2.ts')
-    # v1 = in1.video
-    # a1 = in1.audio
-    # v2 = in2.video
-    # a2 = in2.audio
-    # l = [v1, a1, v2, a2]
-    # ffmpeg.concat(*l, v=1, a=1).output('output.mp4').run()
-
-    # ins = ['1.ts', '2.ts']
-    # l = flat_map(lambda i: [i.video, i.audio], ins)
-    # ffmpeg.concat(*l, v=1, a=1).output('output.mp4').run()
-
-    input_ts_filenames = sorted(glob.glob(f"{raw_videos_dir}/*.ts"))
-    input_videos = map(lambda s: ffmpeg.input(s), input_ts_filenames)
-    split_stream_pairs = flat_map(lambda i: [i.video, i.audio], input_videos)
-    ffmpeg.concat(*split_stream_pairs, v=1, a=1).output(output_mp4_filename).run()
-
-
-def reduce_transcode(raw_videos_dir: str, output_mp4_filename: str):
-    """
-    Fully combine and transcode each video in the given dir (beginning with the 1st) into a new output .mp4 video file.
-
-    :param raw_videos_dir: Directory containing the raw .ts input video files.
-    :param output_mp4_filename: Filename to save the output .mp4 video file as.
-    """
-    input_ts_filenames = sorted(glob.glob(f"{raw_videos_dir}/*.ts*"))
-
-    #TODO: This whole method doesn't work. :-/
-    raise NotImplementedError("reduce_transcode")
-
-    # OPTION 1
-    # def add_filenames(filename_1: str, filename_2: str):
-    #     input_1 = ffmpeg.input(filename_1)
-    #     input_2 = ffmpeg.input(filename_2)
-    #     ffmpeg \
-    #         .concat(input_1.video, input_1.audio, input_2.video, input_2.audio, v=1, a=1) \
-    #         .output(output_mp4_filename) \
-    #         .run(overwrite_output=True)
-    #     return output_mp4_filename
-    # input_videos = map(lambda s: ffmpeg.input(s), input_ts_filenames)
-
-    # OPTION 2
-    # def add_input_videos(input_1: ffmpeg.nodes.FilterableStream, input_2: ffmpeg.nodes.FilterableStream):
-    #     ffmpeg\
-    #         .concat(input_1.video, input_1.audio, input_2.video, input_2.audio, v=1, a=1)\
-    #         .output(output_mp4_filename)\
-    #         .run(overwrite_output=True)
-    #     return ffmpeg.input(output_mp4_filename)
-
-    # reduce(add_input_videos, input_videos)
-
-    # OPTION 3
-    # stream = ffmpeg
-    # for ts_file in tqdm(input_ts_filenames, desc='Combining…', unit='vids'):
-    #     ts_input = ffmpeg.input(ts_file)
-    #     stream = stream.concat(ts_input.video, ts_input.audio, v=1, a=1)
-    # stream.output(output_mp4_filename).run()
 
 
 if __name__ == "__main__":
