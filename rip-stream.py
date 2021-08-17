@@ -4,7 +4,7 @@
 `rip-stream.py`
 ===============
 
-Automatically downloads .ts files from a generated list of URLs and combines them together into an .mp4 file.
+Automatically downloads .ts files from a URL template and combines them together into an .mp4 file.
 Simply run from a command line and follow the interactive prompts.
 
 Usage
@@ -37,6 +37,7 @@ from functools import reduce
 from pathlib import Path
 import urllib.request
 import glob
+import argparse
 
 import ffmpeg
 from tqdm import tqdm
@@ -45,28 +46,46 @@ __license__ = "MIT"
 
 RAW_VIDEOS_DIR_NAME = "raw-ts-videos"
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("rip-stream")
 logger.setLevel(logging.DEBUG)
+
+if sys.version_info < (3, 6):
+    logger.warning("This script requires Python 3.6+")
 
 
 def main():
-    if sys.version_info < (3, 6):
-        raise RuntimeError("This script requires Python 3.6+")
+    parser = argparse.ArgumentParser(
+        description='Automatically download .ts files from a URL template and combine them together into an .mp4 file.'
+    )
+    parser.add_argument('video_name', type=str, nargs='?',
+                        help='Video name (like "S01E01 - Title")')
+    parser.add_argument('--url_template', type=str, nargs='?',
+                        help='URL template, using {} or {:03d} for number placeholders')
+    parser.add_argument('--first_number', type=int, nargs='?',
+                        help='First number in URL template to download')
+    parser.add_argument('--last_number', type=int, nargs='?',
+                        help='Last number in URL template to download')
 
-    output_name = input('Episode name (like "S01E01 - Title"): ')
-    raw_videos_dir = f"./{output_name}/{RAW_VIDEOS_DIR_NAME}"
-
-    if os.path.isdir(raw_videos_dir):
-        print(f"{raw_videos_dir} directory exists. Skipping download.")
+    args = parser.parse_args()
+    if args.video_name and args.url_template and args.first_number >= 0 and args.last_number >= 0:
+        download_and_transcode(args.video_name, args.url_template, args.first_number, args.last_number)
     else:
-        print('Please type a URL format and use "{}" as the placeholder for the video number.')
+        logger.debug(args.__dict__)
+        main_interactive()
+
+
+def main_interactive():
+    video_name = input('Video name (like "S01E01 - Title"): ')
+
+    if not os.path.isdir(_raw_videos_dir(video_name)):
+        print('Please type a URL template and use "{}" as the placeholder for the video number.')
         print('If there are leading zeros in the video number use "{:03d}" as the placeholder instead (e.g. for "000").')
         print('Example: https://zype.com/videos{:03d}.ts')
-        url_format = input('URL format: ')
-        if '{' not in url_format or '}' not in url_format:
-            raise ValueError("Placeholder not specified in URL format:", url_format)
-        if re.search(r'{.*\..*}', url_format):
-            raise ValueError("URL format placeholder cannot contain a `.` character:", url_format)
+        url_template = input('URL template: ')
+        if '{' not in url_template or '}' not in url_template:
+            raise ValueError("Placeholder not specified in URL template:", url_template)
+        if re.search(r'{.*\..*}', url_template):
+            raise ValueError("URL template placeholder cannot contain a `.` character:", url_template)
         first_index_str = input('First index (inclusive, default = 0): ')
         if first_index_str == "":
             first_index_int = 0
@@ -75,17 +94,29 @@ def main():
         # TODO: Automatically keep downloading the next incremented video until you get a 404 error
         last_index = int(input('Last index (inclusive, example: 555): '))
 
-        index_range = range(first_index_int, last_index+1)
+        download_and_transcode(video_name, url_template, first_index_int, last_index)
+    else:
+        download_and_transcode(video_name)
 
-        download_all(url_format, index_range, raw_videos_dir)
 
-    combined_ts_filename = f"./{output_name}/{output_name}.ts"
+def download_and_transcode(video_name: str,
+                           url_template: str = None,
+                           first_number: int = None, last_number: int = None):
+    raw_videos_dir = _raw_videos_dir(video_name)
+
+    if os.path.isdir(raw_videos_dir):
+        print(f"{raw_videos_dir} directory exists. Skipping download.")
+    else:
+        index_range = range(first_number, last_number+1)
+        download_all(url_template, index_range, raw_videos_dir)
+
+    combined_ts_filename = f"./{video_name}/{video_name}.ts"
     if os.path.exists(combined_ts_filename):
         print(f"{combined_ts_filename} already exists. Skipping.")
     else:
         combine_all(raw_videos_dir, combined_ts_filename)
 
-    output_mp4_filename = f"./{output_name}/{output_name}.mp4"
+    output_mp4_filename = f"./{video_name}/{video_name}.mp4"
     if os.path.exists(output_mp4_filename):
         print(f"{output_mp4_filename} already exists. Skipping.")
     else:
@@ -181,6 +212,11 @@ def transcode_ts_to_mp4(combined_ts_filename: str, output_mp4_filename: str):
         .input(combined_ts_filename)\
         .output(output_mp4_filename)\
         .run()
+    print(f"Transcode finished: {output_mp4_filename}")
+
+
+def _raw_videos_dir(video_name: str):
+    return f"./{video_name}/{RAW_VIDEOS_DIR_NAME}"
 
 
 if __name__ == "__main__":
