@@ -65,8 +65,11 @@ def main():
                         help='First number in URL template to download. Must be a non-negative integer.')
     parser.add_argument('--last_number', type=int, metavar='INT',
                         help='Last number in URL template to download. Must be a non-negative integer.')
-    parser.add_argument('--notify', type=bool, action=argparse.BooleanOptionalAction, default=True,
-                        help='Whether or not to send a Pushover push notification when transcoding finishes.')
+    parser.add_argument('--notify', dest='notify', action='store_true',
+                        help='Send a Pushover push notification when transcoding finishes. (Default.)')
+    parser.add_argument('--no-notify', dest='notify', action='store_false',
+                        help='Disable sending a Pushover push notification when transcoding finishes.')
+    parser.set_defaults(notify=True)
     parser.add_argument('--notification_level', type=int, default=0, metavar='LEVEL',
                         help='Priority of the notification to be sent. Valid values are -2, -1, 0, 1, 2. Default is 0.')
 
