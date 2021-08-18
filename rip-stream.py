@@ -33,7 +33,6 @@ import sys
 import os
 import re
 import logging
-from functools import reduce
 from pathlib import Path
 import urllib.request
 import glob
@@ -47,8 +46,8 @@ __license__ = "MIT"
 
 RAW_VIDEOS_DIR_NAME = "raw-ts-videos"
 
-logger = logging.getLogger("rip-stream")
-logger.setLevel(logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("rip-stream.py")
 
 if sys.version_info < (3, 6):
     logger.warning("This script requires Python 3.6+")
@@ -58,20 +57,26 @@ def main():
     parser = argparse.ArgumentParser(
         description='Automatically download .ts files from a URL template and combine them together into an .mp4 file.'
     )
-    parser.add_argument('video_name', type=str, nargs='?',
+    parser.add_argument('video_name', type=str,
                         help='Video name (like "S01E01 - Title")')
-    parser.add_argument('--url_template', type=str, nargs='?',
+    parser.add_argument('--url_template', type=str, metavar='URL',
                         help='URL template, using {} or {:03d} for number placeholders')
-    parser.add_argument('--first_number', type=int, nargs='?',
-                        help='First number in URL template to download')
-    parser.add_argument('--last_number', type=int, nargs='?',
-                        help='Last number in URL template to download')
+    parser.add_argument('--first_number', type=int, metavar='INT',
+                        help='First number in URL template to download. Must be a non-negative integer.')
+    parser.add_argument('--last_number', type=int, metavar='INT',
+                        help='Last number in URL template to download. Must be a non-negative integer.')
+    parser.add_argument('--notify', type=bool, action=argparse.BooleanOptionalAction, default=True,
+                        help='Whether or not to send a Pushover push notification when transcoding finishes.')
+    parser.add_argument('--notification_level', type=int, default=0, metavar='LEVEL',
+                        help='Priority of the notification to be sent. Valid values are -2, -1, 0, 1, 2. Default is 0.')
 
     args = parser.parse_args()
+    logger.debug("args = %s", args.__dict__)
     if args.video_name and args.url_template and args.first_number >= 0 and args.last_number >= 0:
-        download_and_transcode(args.video_name, args.url_template, args.first_number, args.last_number)
+        download_and_transcode(args.video_name, url_template=args.url_template,
+                               first_number=args.first_number, last_number=args.last_number,
+                               notify=args.notify, notification_priority=args.notification_level)
     else:
-        logger.debug(args.__dict__)
         main_interactive()
 
 
@@ -102,34 +107,39 @@ def main_interactive():
 
 def download_and_transcode(video_name: str,
                            url_template: str = None,
-                           first_number: int = None, last_number: int = None):
+                           first_number: int = None, last_number: int = None,
+                           notify: bool = True, notification_priority: int = 0):
     raw_videos_dir = _raw_videos_dir(video_name)
 
     if os.path.isdir(raw_videos_dir):
-        print(f"{raw_videos_dir} directory exists. Skipping download.")
+        logger.info("'%s' directory exists. Skipping download.", raw_videos_dir)
     else:
         index_range = range(first_number, last_number+1)
         download_all(url_template, index_range, raw_videos_dir)
 
     combined_ts_filename = f"./{video_name}/{video_name}.ts"
     if os.path.exists(combined_ts_filename):
-        print(f"{combined_ts_filename} already exists. Skipping.")
+        logger.info("'%s' already exists. Skipping.", combined_ts_filename)
     else:
         combine_all(raw_videos_dir, combined_ts_filename)
 
     output_mp4_filename = f"./{video_name}/{video_name}.mp4"
     if os.path.exists(output_mp4_filename):
-        print(f"{output_mp4_filename} already exists. Skipping.")
+        logger.info("'%s' already exists. Skipping.", output_mp4_filename)
     else:
         transcode_ts_to_mp4(combined_ts_filename, output_mp4_filename)
-        # concat_and_transcode(raw_videos_dir, output_mp4_filename)
-        # reduce_transcode(raw_videos_dir, output_mp4_filename)
 
-    if os.path.exists(os.path.expanduser('~/.pushoverrc')):
-        Pushover().send_message(f"'{video_name}' finished transcoding.", title="Rip-Stream Finished")
-    else:
-        logger.info(
-            "Create a ~/.pushoverrc file if you want to receive push notifications via Pushover.")
+    if notify:
+        if os.path.exists(os.path.expanduser('~/.pushoverrc')):
+            notify_finished(video_name, notification_priority)
+        else:
+            logger.warning(
+                "Create a ~/.pushoverrc file if you want to receive push notifications via Pushover.")
+
+
+def notify_finished(video_name: str, priority: int = 0):
+    Pushover().send_message(f"'{video_name}' finished transcoding.",
+                            title="Rip-Stream Finished", priority=priority)
 
 
 def download_all(url_format: str, video_nums: range, raw_videos_dir: str):
@@ -195,11 +205,11 @@ def combine_all(raw_videos_dir: str, output_filename: str):
         raise RuntimeError("raw-videos directory does not exist:", raw_videos_dir)
 
     if os.path.exists(output_filename):
-        raise RuntimeError(f"Output file already exists.", output_filename)
+        raise RuntimeError("Output file already exists.", output_filename)
 
     with open(output_filename, 'wb') as outfile:
         input_ts_filenames = sorted(glob.glob(f"{raw_videos_dir}/*.ts"))
-        logger.debug(f"input_ts_filenames = {input_ts_filenames}")
+        logger.debug("input_ts_filenames = %s", input_ts_filenames)
         for ts_file in tqdm(input_ts_filenames, desc='Combining…', unit='vids'):
             with open(ts_file, 'rb') as infile:
                 outfile.write(infile.read())
