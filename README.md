@@ -19,8 +19,7 @@ or, if you already have the dependencies installed system-wide, simply run:
 
 You can also run _rip-stream_ non-interactively by running it with command line arguments:
 
-    python3 rip-stream.py --url_template 'https://example.com/videos/{}.ts' \
-                          --first_number 0 'S01E01 - Pilot'
+    python3 rip-stream.py --url_template 'https://example.com/videos/{}.ts' 'S01E01 - Pilot'
 
 Run `python3 rip-stream.py --help` to learn more about the command line arguments.
 
