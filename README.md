@@ -20,7 +20,7 @@ or, if you already have the dependencies installed system-wide, simply run:
 You can also run _rip-stream_ non-interactively by running it with command line arguments:
 
     python3 rip-stream.py --url_template 'https://example.com/videos/{}.ts' \
-                          --first_number 0 --last_number 555 'S01E01 - Pilot'
+                          --first_number 0 'S01E01 - Pilot'
 
 Run `python3 rip-stream.py --help` to learn more about the command line arguments.
 
@@ -54,6 +54,7 @@ Dependencies
     * This Python library might require you to first install the main _ffmpeg_ library on your system.
       If you are using macOS, you can do this with [Homebrew](https://brew.sh) using `brew install ffmpeg`.
 * [tqdm] – Makes it easy to display progress bars in the console from a Python script.
+* [pyspin] - Displays loading spinner in the console.
 * [python-pushover] – Optionally receive a Pushover notification every time _rip-stream_ finishes transcoding.
 
 Attribution
@@ -66,4 +67,5 @@ Inspired by Bash script at https://stackoverflow.com/a/45050718/1360295
 <!-- Links -->
 [ffmpeg-python]: https://github.com/kkroening/ffmpeg-python
 [tqdm]: https://tqdm.github.io
+[pyspin]: https://github.com/lord63/py-spin
 [python-pushover]: https://github.com/Thibauth/python-pushover

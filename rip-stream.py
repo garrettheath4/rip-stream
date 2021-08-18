@@ -35,11 +35,13 @@ import re
 import logging
 from pathlib import Path
 import urllib.request
+import urllib.error
 import glob
 import argparse
 
 import ffmpeg
 from tqdm import tqdm
+from pyspin.spin import Spin1, Spinner
 from pushover import Client as Pushover
 
 __license__ = "MIT"
@@ -60,11 +62,9 @@ def main():
     parser.add_argument('video_name', type=str,
                         help='Video name (like "S01E01 - Title")')
     parser.add_argument('--url_template', type=str, metavar='URL',
-                        help='URL template, using {} or {:03d} for number placeholders')
-    parser.add_argument('--first_number', type=int, metavar='INT',
+                        help='URL template, using {} (or {:03d} for 3 wide with leading zeros) for number placeholders')
+    parser.add_argument('--first_number', type=int, metavar='INT', required=False, default=0,
                         help='First number in URL template to download. Must be a non-negative integer.')
-    parser.add_argument('--last_number', type=int, metavar='INT',
-                        help='Last number in URL template to download. Must be a non-negative integer.')
     parser.add_argument('--notify', dest='notify', action='store_true',
                         help='Send a Pushover push notification when transcoding finishes. (Default.)')
     parser.add_argument('--no-notify', dest='notify', action='store_false',
@@ -75,9 +75,9 @@ def main():
 
     args = parser.parse_args()
     logger.debug("args = %s", args.__dict__)
-    if args.video_name and args.url_template and args.first_number >= 0 and args.last_number >= 0:
+    if args.video_name and args.url_template:
         download_and_transcode(args.video_name, url_template=args.url_template,
-                               first_number=args.first_number, last_number=args.last_number,
+                               first_number=args.first_number,
                                notify=args.notify, notification_priority=args.notification_level)
     else:
         main_interactive()
@@ -100,25 +100,22 @@ def main_interactive():
             first_index_int = 0
         else:
             first_index_int = int(first_index_str)
-        # TODO: Automatically keep downloading the next incremented video until you get a 404 error
-        last_index = int(input('Last index (inclusive, example: 555): '))
 
-        download_and_transcode(video_name, url_template, first_index_int, last_index)
+        download_and_transcode(video_name, url_template=url_template, first_number=first_index_int)
     else:
         download_and_transcode(video_name)
 
 
 def download_and_transcode(video_name: str,
                            url_template: str = None,
-                           first_number: int = None, last_number: int = None,
+                           first_number: int = 0,
                            notify: bool = True, notification_priority: int = 0):
     raw_videos_dir = _raw_videos_dir(video_name)
 
     if os.path.isdir(raw_videos_dir):
         logger.info("'%s' directory exists. Skipping download.", raw_videos_dir)
     else:
-        index_range = range(first_number, last_number+1)
-        download_all(url_template, index_range, raw_videos_dir)
+        auto_download(url_template, raw_videos_dir, first_number=first_number)
 
     combined_ts_filename = f"./{video_name}/{video_name}.ts"
     if os.path.exists(combined_ts_filename):
@@ -145,14 +142,14 @@ def notify_finished(video_name: str, priority: int = 0):
                             title="Rip-Stream Finished", priority=priority)
 
 
-def download_all(url_format: str, video_nums: range, raw_videos_dir: str):
+def auto_download(url_format: str, raw_videos_dir: str, first_number: int = 0):
     """
-    Downloads all of the videos for a URL and Range into a folder with the given name.
+    Downloads the first video for the given URL format (starting with `first_number`) into a folder with the given name
+    and keeps trying to download videos until it receives an HTTP 404 response.
 
     :param url_format: A string representing the format of the URL to download the raw videos from.
-    :param video_nums: A `range` of valid video numbers to use in the urlFormat to generate download
-                       URLs.
     :param raw_videos_dir: The name to give a new folder to download all new raw video files into.
+    :param first_number: The first number to use when downloading videos using the given url format. (Default 0)
     """
 
     if os.path.isdir(raw_videos_dir):
@@ -170,8 +167,22 @@ def download_all(url_format: str, video_nums: range, raw_videos_dir: str):
     # keyURL="$(dirname "$urlPrefix")/ttBearer-1080.key"
     # $downloadCmd $downloadArg "$keyURL" || exitOnError "Unable to download key file: $keyURL"
 
-    for i in tqdm(video_nums, desc='Downloading…', unit='vids'):
-        urllib.request.urlretrieve(url_format.format(i), f"{raw_videos_dir}/{i:05}.ts")
+    spin = Spinner(Spin1)
+    logger.info("First video number to download: %d", first_number)
+    i = first_number
+    while True:
+        print(u"\rDownloading videos… {0}".format(spin.next()), end="")
+        sys.stdout.flush()
+        try:
+            urllib.request.urlretrieve(url_format.format(i), f"{raw_videos_dir}/{i:05}.ts")
+        except urllib.error.HTTPError as ex:
+            print()
+            if ex.code != 404:
+                logger.error("Unexpected HTTP response error code %d while downloading videos: %s", ex.code, str(ex))
+            # urllib.error.HTTPError: HTTP Error 404: Not Found
+            logger.info("Last video number downloaded: %d", i-1)
+            break
+        i += 1
 
 
 def combine_all(raw_videos_dir: str, output_filename: str):
